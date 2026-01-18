@@ -1,9 +1,30 @@
 {
-  "manifest_version": 3,
-  "name": "Blank Extension",
-  "version": "1.0",
-  "description": "A blank Chrome extension",
-  "action": {
-    "default_popup": "index.html"
-  }
+    "manifest_version": 3,
+    "name": "Accessibility Rater", 
+    "description": "Rates the website based on Accessibility features and rank them.",
+    "version": "1.0", 
+    "icons":{
+        "16": "./icons/Accessibility-16.png",
+        "24": "./icons/Accessibility-24.png",
+        "32": "./icons/Accessibility-32.png",
+        "128": "./icons/Accessibility-128.png"
+    },
+    "author": "ONeal",
+    "content_scripts": [
+        {
+            "matches": ["https://www.google.com/search*",
+                        "https://www.google.ca/search*"
+            ],
+            "js": ["index.js"]
+        }
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "host_permissions": ["<all_urls>"],
+    "permissions":[
+        "activeTab", 
+        "scripting"
+    ]
+    
 }
