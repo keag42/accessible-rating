@@ -1,16 +1,20 @@
 {
-  "name": "hackville",
+  "name": "access-lens",
   "version": "1.0.0",
   "type": "module",
-  "description": "",
-  "main": "../hackville/index.js",
+  "description": "Web accessibility made easy - accessibility ratings, text simplification, translation, and more",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "private": true,
   "dependencies": {
     "@google/genai": "^1.37.0",
     "cheerio": "^1.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "node-fetch": "^3.3.2"
   }
 }
