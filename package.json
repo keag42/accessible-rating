@@ -1,0 +1,16 @@
+{
+  "name": "hackville",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "../hackville/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "private": true,
+  "dependencies": {
+    "@google/genai": "^1.37.0",
+    "cheerio": "^1.1.2",
+    "node-fetch": "^3.3.2"
+  }
+}
