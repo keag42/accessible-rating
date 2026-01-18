@@ -59,25 +59,34 @@ function getSearchResultUrls() {
   return urls;
 }
 
-function addBadge(result, text) {
-  const badge = document.createElement("div");
-  badge.className = "accessibility-rank";
+function addBadge(result, text, score){
+    const badge = document.createElement("div");
+        badge.className = "accessibility-rank";
 
-  badge.textContent = text;
+        badge.textContent = text;
 
-  badge.style.position = "absolute";
-  badge.style.left = "-60px";
-  badge.style.top = "12px";
-  badge.style.background = "#1a73e8";
-  badge.style.color = "#fff";
-  badge.style.padding = "4px 8px";
-  badge.style.borderRadius = "6px";
-  badge.style.fontSize = "12px";
-  badge.style.fontWeight = "bold";
-  badge.style.zIndex = "1000";
+        badge.style.position = "absolute";
+        badge.style.left= "-60px";
+        badge.style.top = "12px";
+        if(score > 70 && score <= 100){
+            badge.style.background = "#24C939"; //
+        }
+        else if(score > 40 ){
+            badge.style.background = "#B5A400";
+        }
+        else{
+            badge.style.background = "#F50505";
+        }
+        badge.style.color = "#fff";
+        badge.style.padding = "4px 8px";
+        badge.style.paddingLeft = "0px";
+        badge.style.borderRadius = "6px";
+        badge.style.fontSize = "12px";
+        badge.style.fontWeight = "bold";
+        badge.style.zIndex = "1000";
 
-  result.style.position = "relative";
-  result.prepend(badge);
+        result.style.position = "relative";
+        result.prepend(badge);
 }
 
 function removeBadges() {
@@ -118,29 +127,68 @@ async function analyzeAccessibility(url) {
     });
   });
 
-  if (htmlText) {
-    //If the text includes meta data then the point should apply. +10
-    if (htmlText.includes('<meta name="viewport"')) score += 10;
+    if (htmlText) {
+        //If the text includes meta data then the point should apply. +10
+        if (htmlText.includes('<meta name="viewport"')) score += 10;
 
-    //If the text includes <meta data and the language of the html for users> it should be +10
-    if (htmlText.includes("<html lang=>")) score += 10;
+        //If the text includes <meta data and the language of the html for users> it should be +10
+        if (htmlText.includes("<html lang=>")) score += 10;
 
-    //If the text has the correct semantic tags such as the header, footer and nav it should be +10 points
-    if (htmlText.match(/<header>|<main>|<nav>|<footer>/)) score += 20;
+        //If the text has the correct semantic tags such as the header, footer and nav it should be +10 points
+        if (htmlText.match(/<header>|<main>|<nav>|<footer>/)) score += 20;
 
-    if (htmlText.match(/aria-|role=""/)) score += 20;
+        if (htmlText.match(/aria-|role=""/)) score += 20;
 
-    if (htmlText.match(/mobile|responsive|@media/)) score += 30;
-  }
+        if(htmlText.match(/mobile|responsive|@media/)) score += 30
+
+        const [withAlt, total] = await ratingData(url);
+        console.log(withAlt + '/' + total);
+    }
 
   return score;
 }
 
+//rating
+async function ratingData(pageLink) {
+    let numberWithAlt = 0;
+    let totalNumber = 0;
+
+    // Ask background.js to fetch HTML
+    const htmlText = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+            { action: "fetchUrl", url: pageLink },
+            (response) => {
+                resolve(response?.success ? response.data : "");
+            }
+        );
+    });
+
+    if (!htmlText) {
+        return [0, 0];
+    }
+
+    // Parse HTML safely in content script
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, "text/html");
+
+    const images = doc.querySelectorAll("img");
+
+    images.forEach(img => {
+        totalNumber++;
+        const alt = img.getAttribute("alt");
+        if (alt && alt.trim() !== "") {
+            numberWithAlt++;
+        }
+    });
+
+    return [numberWithAlt, totalNumber];
+}
+
 //Score all results
-async function scoreResults(items) {
-  for (const item of items) {
-    item.score = await analyzeAccessibility(item.url);
-  }
+async function scoreResults(items){
+    for(const item of items){
+        item.score = await analyzeAccessibility(item.url);
+    }
 }
 
 //Sort by accessibility score:
