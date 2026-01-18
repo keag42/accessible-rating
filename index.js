@@ -102,7 +102,7 @@ function showBadges() {
 
   rankedResults.forEach((item, index) => {
     const rank = index + 1;
-    addBadge(item.element, `#${rank} . ${item.score}`);
+    addBadge(item.element, `#${rank} . ${item.score}`, item.score);
   });
   ratingsVisible = true;
 }
@@ -200,7 +200,7 @@ function sortbyScore(items) {
 function applyRankings(items) {
   items.forEach((item, index) => {
     const rank = index + 1;
-    addBadge(item.element, `#${rank} . ${item.score}`);
+    addBadge(item.element, `#${rank} . ${item.score}`, item.score);
   });
 }
 
