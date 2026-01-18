@@ -4,10 +4,7 @@
     "description": "Rates the website based on Accessibility features and rank them.",
     "version": "1.0", 
     "icons":{
-        "16": "./icons/Accessibility-16.png",
-        "24": "./icons/Accessibility-24.png",
-        "32": "./icons/Accessibility-32.png",
-        "128": "./icons/Accessibility-128.png"
+        "128": "logo/logo.png"
     },
     "author": "ONeal",
     "content_scripts": [
