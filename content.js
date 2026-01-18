@@ -1,7 +1,3 @@
-// ==================== ACCESS LENS CONTENT SCRIPT ====================
-// Provides text accessibility features on all pages
-
-// Inject fonts
 const style = document.createElement("style");
 style.textContent = `
   @font-face {
@@ -54,6 +50,7 @@ let speechSynthesisActive = false;
 let originalStyles = {};
 run_once = false;
 let colorblindModeEnabled = false;
+let dyslexiaModeEnabled = false;
 
 function saveSelection() {
   if (window.getSelection) {
@@ -83,7 +80,6 @@ function speakText(text) {
   chrome.storage.sync.get(
     ["speechVoice", "speechRate", "speechPitch"],
     (data) => {
-      // Set default values if not found
       let voiceName = data.speechVoice || "";
       let rate = data.speechRate || 1;
       let pitch = data.speechPitch || 1;
@@ -114,13 +110,11 @@ function speakText(text) {
         console.error("Speech error:", event);
       };
 
-      // Speak the text
       window.speechSynthesis.speak(utterance);
     },
   );
 }
 
-// Stop ongoing speech
 function stopSpeech() {
   if (speechSynthesisActive) {
     window.speechSynthesis.cancel();
@@ -137,7 +131,6 @@ function captureOriginalStyles() {
     filter: document.body.style.filter,
   };
 
-  // Capture the original font family and size of all elements
   originalStyles.elements = [];
   const allElements = document.querySelectorAll("*:not(script):not(style)");
   allElements.forEach((el) => {
@@ -162,12 +155,49 @@ if (run_once == false) {
   run_once = true;
 }
 
-// NOTE: Settings are NOT auto-restored on page load
-// User must open the popup and apply settings manually each session
-// This prevents unwanted font changes on refresh
+function applyColorblindMode(enabled) {
+  colorblindModeEnabled = enabled;
 
-// Global functions for restoring settings on page load
-function applyFontToAllGlobal(font, size, spacing) {
+  if (enabled) {
+    document.body.style.filter = "contrast(105%) saturate(200%)";
+  } else {
+    document.body.style.filter = "none";
+  }
+}
+
+function applyDyslexiaMode(enabled) {
+  dyslexiaModeEnabled = enabled;
+
+  if (enabled) {
+    applyFontToAll("OpenDyslexic", 15, 2.5);
+    const allElements = document.querySelectorAll("*:not(script):not(style)");
+    allElements.forEach((el) => {
+      const style = window.getComputedStyle(el);
+      if (style.display !== "none" && style.visibility !== "hidden") {
+        el.style.fontWeight = "bold";
+      }
+    });
+  } else {
+    resetToOriginalStyles();
+  }
+}
+
+function applySizeSpacingToAll(size, spacing) {
+  document.body.style.fontSize = size + "px";
+  document.body.style.letterSpacing = spacing + "px";
+
+  const allElements = document.querySelectorAll("*:not(script):not(style)");
+  allElements.forEach((el) => {
+    const style = window.getComputedStyle(el);
+    const isVisible = style.display !== "none" && style.visibility !== "hidden";
+    if (isVisible) {
+      el.style.fontSize = size + "px";
+      el.style.letterSpacing = spacing + "px";
+    }
+  });
+}
+
+function applyFontToAll(font, size, spacing) {
   document.body.style.fontFamily = font;
   document.body.style.fontSize = size + "px";
   document.body.style.letterSpacing = spacing + "px";
@@ -184,31 +214,8 @@ function applyFontToAllGlobal(font, size, spacing) {
   });
 }
 
-function toggleBoldAllGlobal(applyBold) {
-  const allElements = document.querySelectorAll("*:not(script):not(style)");
-  allElements.forEach((el) => {
-    const style = window.getComputedStyle(el);
-    const isVisible = style.display !== "none" && style.visibility !== "hidden";
-    if (isVisible) {
-      el.style.fontWeight = applyBold ? "bold" : "normal";
-    }
-  });
-}
-
-function applyColorblindMode(enabled) {
-  colorblindModeEnabled = enabled;
-  console.log("Colorblind mode:", enabled ? "enabled" : "disabled");
-
-  if (enabled) {
-    document.body.style.filter = "contrast(105%) saturate(200%)";
-  } else {
-    document.body.style.filter = "none";
-  }
-}
-
 async function callCohere(prompt) {
   try {
-    // Show loading indicator
     const loadingSpan = document.createElement("span");
     loadingSpan.textContent = "⌛ Processing...";
     loadingSpan.style.backgroundColor = "#fff3cd";
@@ -233,7 +240,6 @@ async function callCohere(prompt) {
       },
     );
 
-    // Remove loading indicator
     loadingSpan.remove();
 
     if (!res.ok) {
@@ -243,7 +249,6 @@ async function callCohere(prompt) {
     return { text: data.text };
   } catch (error) {
     console.error("API error:", error);
-    // Show error message to user
     const errorSpan = document.createElement("span");
     errorSpan.textContent =
       "❌ Error: Could not process text. Please try again.";
@@ -254,6 +259,30 @@ async function callCohere(prompt) {
     setTimeout(() => errorSpan.remove(), 3000);
     return { error: error.message };
   }
+}
+
+function resetToOriginalStyles() {
+  document.body.style.fontFamily = originalStyles.body.fontFamily;
+  document.body.style.fontSize = originalStyles.body.fontSize;
+  document.body.style.letterSpacing = originalStyles.body.fontSpacing;
+  document.body.style.fontWeight = originalStyles.body.fontWeight;
+  document.body.style.filter = originalStyles.body.filter;
+
+  originalStyles.elements.forEach((item) => {
+    try {
+      if (item.element && item.element.style) {
+        item.element.style.fontFamily = item.fontFamily;
+        item.element.style.fontSize = item.fontSize;
+        item.element.style.letterSpacing = item.fontSpacing;
+        item.element.style.fontWeight = item.fontWeight;
+      }
+    } catch (e) {}
+  });
+
+  const allSpans = document.querySelectorAll("span[style*='background']");
+  allSpans.forEach((span) => {
+    span.outerHTML = span.innerHTML;
+  });
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -285,6 +314,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     applyFontToAll(request.font, request.size, request.spacing);
   }
 
+  if (request.action === "updateSizeSpacing") {
+    applySizeSpacingToAll(request.size, request.spacing);
+  }
+
   if (request.action === "speakText") {
     const selection = window.getSelection().toString().trim();
     if (selection) {
@@ -292,62 +325,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
   }
 
-  function applyFontToAll(font, size, spacing) {
-    document.body.style.fontFamily = font;
-    document.body.style.fontSize = size + "px";
-    console.log("Font: " + document.body.style.fontFamily);
-
-    document.body.style.letterSpacing = spacing + "px";
-
-    const allElements = document.querySelectorAll("*:not(script):not(style)");
-
-    allElements.forEach((el) => {
-      const style = window.getComputedStyle(el);
-      const isVisible =
-        style.display !== "none" && style.visibility !== "hidden";
-      if (isVisible) {
-        el.style.fontFamily = font;
-        el.style.fontSize = size + "px";
-        el.style.letterSpacing = spacing + "px";
-      }
-    });
-  }
-
   if (request.action === "resetToDefault") {
     stopSpeech();
-
     resetToOriginalStyles();
+    colorblindModeEnabled = false;
+    dyslexiaModeEnabled = false;
+    document.body.style.filter = "none";
   }
 
-  function resetToOriginalStyles() {
-    // Restore the original font family and size of the body
-    document.body.style.fontFamily = originalStyles.body.fontFamily;
-    document.body.style.fontSize = originalStyles.body.fontSize;
-    document.body.style.letterSpacing = originalStyles.body.fontSpacing;
-    document.body.style.fontWeight = originalStyles.body.fontWeight;
-    document.body.style.filter = originalStyles.body.filter;
-
-    // Restore the original font family and size of all elements
-    originalStyles.elements.forEach((item) => {
-      try {
-        if (item.element && item.element.style) {
-          item.element.style.fontFamily = item.fontFamily;
-          item.element.style.fontSize = item.fontSize;
-          item.element.style.letterSpacing = item.fontSpacing;
-          item.element.style.fontWeight = item.fontWeight;
-        }
-      } catch (e) {
-        console.log("Error resetting element:", e);
-      }
-    });
-
-    const allSpans = document.querySelectorAll("span[style*='background']");
-    allSpans.forEach((span) => {
-      span.outerHTML = span.innerHTML;
-    });
-
-    colorblindModeEnabled = false;
-    document.body.style.filter = "none";
+  if (request.action === "toggleDyslexiaMode") {
+    applyDyslexiaMode(!dyslexiaModeEnabled);
+    sendResponse({ dyslexiaModeEnabled: dyslexiaModeEnabled });
+    return true;
   }
 
   if (request.action === "toggleBold") {
@@ -367,10 +356,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
   }
 
-  if (request.action === "translatePage") {
-    handleTranslatePage(request.language);
-  }
-
   if (request.action === "toggleColorblindMode") {
     applyColorblindMode(!colorblindModeEnabled);
 
@@ -378,68 +363,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
-
-async function handleTranslatePage(language) {
-  const selection = window.getSelection().toString().trim();
-  if (!selection) return;
-
-  const savedRange = saveSelection();
-  const selectedText = selection;
-
-  try {
-    // Show loading indicator
-    const loadingSpan = document.createElement("span");
-    loadingSpan.textContent = `⌛ loading ...`;
-    loadingSpan.style.backgroundColor = "#fff3cd";
-    loadingSpan.style.padding = "2px 5px";
-    loadingSpan.style.borderRadius = "3px";
-    document.body.appendChild(loadingSpan);
-
-    const res = await fetch(
-      "https://textsavvy-backend.onrender.com/api/translate",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        mode: "cors",
-        credentials: "omit",
-        body: JSON.stringify({
-          text: selectedText,
-          language: language,
-        }),
-      },
-    );
-
-    // Remove loading indicator
-    loadingSpan.remove();
-
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-    const data = await res.json();
-
-    if (!data || !data.text) {
-      throw new Error("No translation received");
-    }
-
-    restoreSelection(savedRange);
-    const newText = `<span style="background: #ffff99;">${data.text}</span>`;
-    const range = window.getSelection().getRangeAt(0);
-    range.deleteContents();
-    const temp = document.createElement("div");
-    temp.innerHTML = newText;
-    range.insertNode(temp.firstChild);
-  } catch (error) {
-    console.error("Translation error:", error);
-    // Show error message to user
-    const errorSpan = document.createElement("span");
-    errorSpan.textContent = "❌ Translation failed. Please try again.";
-    errorSpan.style.backgroundColor = "#f8d7da";
-    errorSpan.style.padding = "2px 5px";
-    errorSpan.style.borderRadius = "3px";
-    document.body.appendChild(errorSpan);
-    setTimeout(() => errorSpan.remove(), 3000);
-  }
-}

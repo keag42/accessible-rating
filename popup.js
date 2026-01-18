@@ -1,12 +1,7 @@
-// ==================== ACCESS LENS POPUP SCRIPT ====================
-// Controls the extension popup UI
-
-// Elements
 const dyslexiaBtn = document.getElementById("dyslexia");
 const colorBlindBtn = document.getElementById("colorblindMode");
 const resetBtn = document.getElementById("reset");
 const simplifyBtn = document.getElementById("simplify");
-const translateBtn = document.getElementById("translate");
 const speakBtn = document.getElementById("speak");
 const toggleRatingsBtn = document.getElementById("toggleRatings");
 
@@ -17,7 +12,6 @@ const fontSizeValue = document.getElementById("fontSizeValue");
 const fontSpacingSlider = document.getElementById("fontSpacingSlider");
 const fontSpacingValue = document.getElementById("fontSpacingValue");
 
-const languageSelect = document.getElementById("languageSelect");
 const toggleBoldBtn = document.getElementById("toggleBold");
 
 const voiceSelect = document.getElementById("voiceSelect");
@@ -26,14 +20,10 @@ const speechRateValue = document.getElementById("speechRateValue");
 const speechPitchSlider = document.getElementById("speechPitchSlider");
 const speechPitchValue = document.getElementById("speechPitchValue");
 
-// --- Restore Stored Values on Load ---
-
 window.onload = () => {
   populateVoiceOptions();
 
-  // Restore ratings toggle state
   chrome.storage.sync.get(["ratingsEnabled"], ({ ratingsEnabled }) => {
-    // Default to true if not set
     const isEnabled = ratingsEnabled !== false;
     if (toggleRatingsBtn) {
       toggleRatingsBtn.textContent = isEnabled
@@ -45,31 +35,30 @@ window.onload = () => {
   chrome.storage.sync.get(
     [
       "colorblindModeEnabled",
-      "language",
+      "dyslexiaModeEnabled",
       "speechVoice",
       "speechRate",
       "speechPitch",
     ],
     ({
       colorblindModeEnabled,
-      language,
+      dyslexiaModeEnabled,
       speechVoice,
       speechRate,
       speechPitch,
     }) => {
-      // Set initial colorblind button text based on stored state
       if (colorblindModeEnabled) {
         colorBlindBtn.textContent = "disable colorblind mode";
       } else {
         colorBlindBtn.textContent = "enable colorblind mode";
       }
 
-      // Set language if available
-      if (language && languageSelect) {
-        languageSelect.value = language;
+      if (dyslexiaModeEnabled) {
+        dyslexiaBtn.textContent = "disable dyslexia mode";
+      } else {
+        dyslexiaBtn.textContent = "enable dyslexia mode";
       }
 
-      // Set speech settings if available
       if (speechRate && speechRateSlider && speechRateValue) {
         speechRateSlider.value = speechRate;
         speechRateValue.textContent = speechRate.toFixed(1);
@@ -96,20 +85,27 @@ window.onload = () => {
   chrome.storage.sync.get(["font", "size", "spacing", "isBold"], (data) => {
     if (data.font) {
       fontSelect.value = data.font;
+    } else {
+      fontSelect.value = "Arial";
     }
     if (data.size) {
       fontSizeSlider.value = data.size;
       fontSizeValue.textContent = data.size + "px";
+    } else {
+      fontSizeSlider.value = 16;
+      fontSizeValue.textContent = "16px";
     }
     if (data.spacing) {
       fontSpacingSlider.value = data.spacing;
       fontSpacingValue.textContent = data.spacing + "px";
+    } else {
+      fontSpacingSlider.value = 1;
+      fontSpacingValue.textContent = "1px";
     }
     if (data.isBold) {
       isBold = data.isBold;
       toggleBoldBtn.textContent = isBold ? "unbold" : "bold";
     }
-    // Don't auto-apply font changes on popup open - only restore UI state
   });
 };
 
@@ -149,8 +145,6 @@ function populateVoiceList(voices) {
   });
 }
 
-// --- Button Actions ---
-
 colorBlindBtn.addEventListener("click", () => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.storage.sync.get(["colorblindModeEnabled"], (result) => {
@@ -158,18 +152,15 @@ colorBlindBtn.addEventListener("click", () => {
 
       const newState = !currentState;
 
-      // Update storage with settingsApplied flag
       chrome.storage.sync.set(
         { colorblindModeEnabled: newState, settingsApplied: true },
         () => {
-          // Send message to content script
           chrome.tabs.sendMessage(
             tabs[0].id,
             {
               action: "toggleColorblindMode",
             },
             (response) => {
-              // Update button text based on the new state
               if (response && response.colorblindModeEnabled !== undefined) {
                 colorBlindBtn.textContent = response.colorblindModeEnabled
                   ? "disable colorblind mode"
@@ -183,7 +174,6 @@ colorBlindBtn.addEventListener("click", () => {
   });
 });
 
-// Speak selected text
 if (speakBtn) {
   speakBtn.addEventListener("click", () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -194,11 +184,9 @@ if (speakBtn) {
   });
 }
 
-// Toggle accessibility ratings
 if (toggleRatingsBtn) {
   toggleRatingsBtn.addEventListener("click", () => {
     chrome.storage.sync.get(["ratingsEnabled"], (result) => {
-      // Default to true if not set
       const currentState = result.ratingsEnabled !== false;
       const newState = !currentState;
 
@@ -207,7 +195,6 @@ if (toggleRatingsBtn) {
           ? "hide ratings"
           : "show ratings";
 
-        // Send message to toggle ratings visibility on current tab
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           chrome.tabs.sendMessage(tabs[0].id, {
             action: "toggleRatings",
@@ -219,7 +206,6 @@ if (toggleRatingsBtn) {
   });
 }
 
-// Simplify text
 if (simplifyBtn) {
   simplifyBtn.addEventListener("click", () => {
     sendPrompt(
@@ -228,24 +214,6 @@ if (simplifyBtn) {
   });
 }
 
-// Translate text
-if (translateBtn && languageSelect) {
-  translateBtn.addEventListener("click", () => {
-    const language = languageSelect.value;
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.tabs.sendMessage(tabs[0].id, {
-        action: "translatePage",
-        language: language,
-      });
-    });
-  });
-
-  languageSelect.addEventListener("change", () => {
-    chrome.storage.sync.set({ language: languageSelect.value });
-  });
-}
-
-// Voice settings
 if (voiceSelect) {
   voiceSelect.addEventListener("change", () => {
     chrome.storage.sync.set({ speechVoice: voiceSelect.value });
@@ -269,42 +237,51 @@ if (speechPitchSlider && speechPitchValue) {
 }
 
 dyslexiaBtn.addEventListener("click", () => {
-  fontSelect.value = "OpenDyslexic";
-  fontSizeSlider.value = 15;
-  fontSizeValue.textContent = "15px";
-  fontSpacingSlider.value = 2.5;
-  fontSpacingValue.textContent = "2.5px";
-  isBold = true;
-  toggleBoldBtn.textContent = isBold ? "unbold" : "bold";
-  applyBoldState();
-  applyFontChanges();
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.storage.sync.get(["dyslexiaModeEnabled"], (result) => {
+      const currentState = result.dyslexiaModeEnabled || false;
+      const newState = !currentState;
+
+      chrome.storage.sync.set(
+        { dyslexiaModeEnabled: newState, settingsApplied: true },
+        () => {
+          chrome.tabs.sendMessage(
+            tabs[0].id,
+            { action: "toggleDyslexiaMode" },
+            (response) => {
+              if (response && response.dyslexiaModeEnabled !== undefined) {
+                dyslexiaBtn.textContent = response.dyslexiaModeEnabled
+                  ? "disable dyslexia mode"
+                  : "enable dyslexia mode";
+              }
+            },
+          );
+        },
+      );
+    });
+  });
 });
 
 let isBold = false;
 
 resetBtn.addEventListener("click", () => {
-  // Clear all saved settings completely
-  chrome.storage.sync.remove(
-    [
-      "font",
-      "size",
-      "spacing",
-      "isBold",
-      "colorblindModeEnabled",
-      "settingsApplied",
-    ],
-    () => {
-      console.log("All settings cleared from storage");
-    },
-  );
+  chrome.storage.sync.remove([
+    "font",
+    "size",
+    "spacing",
+    "isBold",
+    "colorblindModeEnabled",
+    "dyslexiaModeEnabled",
+    "settingsApplied",
+  ]);
 
-  // Reset UI to defaults
   fontSelect.value = "Arial";
   fontSizeSlider.value = 16;
   fontSizeValue.textContent = "16px";
   fontSpacingSlider.value = 1;
   fontSpacingValue.textContent = "1px";
   colorBlindBtn.textContent = "enable colorblind mode";
+  dyslexiaBtn.textContent = "enable dyslexia mode";
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, {
@@ -334,26 +311,38 @@ toggleBoldBtn.addEventListener("click", () => {
   toggleBoldBtn.textContent = isBold ? "unbold" : "bold";
 });
 
-// --- Font + Spacing Sliders ---
-
 fontSizeSlider.addEventListener("input", () => {
   fontSizeValue.textContent = fontSizeSlider.value + "px";
-  applyFontChanges();
+  applySizeSpacingChanges();
 });
 
 fontSelect.addEventListener("change", applyFontChanges);
 
 fontSpacingSlider.addEventListener("input", () => {
   fontSpacingValue.textContent = fontSpacingSlider.value + "px";
-  applyFontChanges();
+  applySizeSpacingChanges();
 });
+
+function applySizeSpacingChanges() {
+  const size = fontSizeSlider.value;
+  const spacing = fontSpacingSlider.value;
+
+  chrome.storage.sync.set({ size, spacing, settingsApplied: true });
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, {
+      action: "updateSizeSpacing",
+      size,
+      spacing,
+    });
+  });
+}
 
 function applyFontChanges() {
   const font = fontSelect.value;
   const size = fontSizeSlider.value;
   const spacing = fontSpacingSlider.value;
 
-  // Mark that settings have been applied so they persist on refresh
   chrome.storage.sync.set({ font, size, spacing, settingsApplied: true });
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -365,8 +354,6 @@ function applyFontChanges() {
     });
   });
 }
-
-// --- Send Prompt Helper ---
 
 function sendPrompt(promptText) {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
