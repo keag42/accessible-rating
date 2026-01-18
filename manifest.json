@@ -1,8 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Blank Extension",
+  "name": "Access Lens",
   "version": "1.0",
-  "description": "A blank Chrome extension",
+  "description": "A Chrome extension to help you analyze and overcome web accessibility issues.",
+  "icons": {
+    "128": "logo/logo.png"
+  },
   "action": {
     "default_popup": "index.html"
   }
