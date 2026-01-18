@@ -1,9 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "Blank Extension",
+  "name": "rating injector",
   "version": "1.0",
-  "description": "A blank Chrome extension",
+  "permissions": [
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://us-central1-gen-lang-client-0652690556.cloudfunctions.net/*"
+  ],
   "action": {
     "default_popup": "index.html"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/search*"],
+      "js": ["content.js"]
+    }
+  ]
 }
